@@ -1,7 +1,7 @@
-import { AuthScreen } from "@/features/auth/components/auth-screen";
+"use client"
 
 export default function Home() {
   return (
-    <AuthScreen />
+    <div></div>
   );
 }
