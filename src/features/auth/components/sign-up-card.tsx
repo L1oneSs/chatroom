@@ -17,13 +17,18 @@ export const SignUpCard = ({setState}: SignUpCardProps) => {
 
     const { signIn } = useAuthActions()
 
-
+    const [name, setName] = useState("")
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
     const [confirmPassword, setConfirmPassword] = useState("")
     const [pending, setPending] = useState(false)
     const [error, setError] = useState("") 
 
+    /**
+     * Функция обработки события "submit" формы регистрации.
+     *
+     * @param {React.FormEvent<HTMLFormElement>} e - Form event.
+     */
     const onPasswordSignUp = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault()
         
@@ -32,12 +37,17 @@ export const SignUpCard = ({setState}: SignUpCardProps) => {
             return;
         }
         setPending(true)
-        signIn("password", {email, password, flow: "signUp"}).catch(() => {
+        signIn("password", {name, email, password, flow: "signUp"}).catch(() => {
             setError("Invalid email or password")
         })
         .finally(() => setPending(false))
     }
 
+    /**
+     * Функция-обработчик для кнопок регистрации с помощью внешних провайдеров.
+     *
+     * @param {string} value - Название провайдера ("github" или "google")
+     */
     const handleProviderSignUp = (value: "github" | "google") => {
         setPending(true)
         signIn(value).finally(() => setPending(false))
@@ -61,6 +71,13 @@ export const SignUpCard = ({setState}: SignUpCardProps) => {
             )}
             <CardContent className="space-y-5 px-0 pb-0">
                 <form onSubmit={onPasswordSignUp} className="space-y-2.5">
+                    <Input 
+                        disabled={pending}
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Full name"
+                        required
+                    />
                     <Input 
                         disabled={pending}
                         value={email}
