@@ -18,7 +18,7 @@ import { api } from "../../../../convex/_generated/api";
  *   </ul>
  * );
  */
-export const usseGetWorkspaces = () => {
+export const useGetWorkspaces = () => {
     const data = useQuery(api.workspaces.get);
     const isLoading = data === undefined;
     return { data, isLoading };
