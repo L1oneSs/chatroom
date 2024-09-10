@@ -15,7 +15,7 @@ const generateCode = () => {
   ).join("");
 
   return code;
-}
+};
 
 export const create = mutation({
   args: {
@@ -133,5 +133,87 @@ export const getById = query({
 
     // Если пользователь состоит в рабочих пространствах, возвращаем рабочую область
     return await ctx.db.get(args.id);
+  },
+});
+
+export const update = mutation({
+  args: {
+    id: v.id("workspaces"),
+    name: v.string(),
+  },
+
+  /**
+   * Обновляет имя существующей рабочей области.
+   *
+   * @param args.id - ID рабочей области
+   * @param args.name - новое имя рабочей области
+   * @throws Error - если пользователь не авторизирован или
+   *                 не является администратором рабочей области
+   */
+  handler: async (ctx, args) => {
+    // Проверяем, авторизован ли пользователь
+    const userId = await auth.getUserId(ctx);
+    if (!userId) {
+      throw new Error("Unauthorized");
+    }
+
+    // Смотрим, в каких рабочих пространствах пользователь состоит
+    const member = await ctx.db
+      .query("members")
+      .withIndex("by_workspace_id_user_id", (q) =>
+        q.eq("workspaceId", args.id).eq("userId", userId)
+      )
+      .unique();
+
+    // Если пользователь не состоит в рабочих пространствах, возвращаем ошибку
+    if (!member || member.role !== "admin") {
+      throw new Error("Unauthorized");
+    }
+
+    // Обновляем имя рабочей области
+    await ctx.db.patch(args.id, { name: args.name });
+
+    // Возвращаем ID обновленной рабочей области
+    return args.id;
+  },
+});
+
+export const remove = mutation({
+  args: {
+    id: v.id("workspaces"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+
+    if (!userId) {
+      throw new Error("Unauthorized");
+    }
+
+    const member = await ctx.db
+      .query("members")
+      .withIndex("by_workspace_id_user_id", (q) =>
+        q.eq("workspaceId", args.id).eq("userId", userId)
+      )
+      .unique();
+
+    if (!member || member.role !== "admin") {
+      throw new Error("Unauthorized");
+    }
+
+    const [members] =
+      await Promise.all([
+        ctx.db
+          .query("members")
+          .withIndex("by_workspace_id", (q) => q.eq("workspaceId", args.id))
+          .collect(),
+      ]);
+
+    for (const member of members) {
+      await ctx.db.delete(member._id);
+    }
+
+    await ctx.db.delete(args.id);
+
+    return args.id;
   },
 });
