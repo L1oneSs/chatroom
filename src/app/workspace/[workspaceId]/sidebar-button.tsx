@@ -30,7 +30,7 @@ export const SidebarButton = ({
       <Button 
         variant="transparent" 
         className={cn(
-          "size-9 p-2 group-hover:bg-accent/20",
+          "size-12 p-2 group-hover:bg-accent/20",
           isActive && "bg-accent/20"
         )}
       >

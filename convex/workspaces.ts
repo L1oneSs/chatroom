@@ -2,6 +2,118 @@ import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { auth } from "./auth";
 
+// Функция для присоединения к рабочей области
+export const join = mutation({
+  args: {
+    joinCode: v.string(),
+    workspaceId: v.id("workspaces"),
+  },
+
+  /**
+   * Обработчик для присоединения к рабочей области
+   *
+   * @throws {Error} если пользователь не авторизован
+   * @throws {Error} если рабочей области не существует
+   * @throws {Error} если код для присоединения к рабочей области не
+   *   соответствует коду, хранящемуся в Convex
+   * @throws {Error} если пользователь уже является активным участником
+   *   этой рабочей области
+   * @returns {string} идентификатор созданного документа-участника
+   */
+  handler: async (ctx, args) => {
+    // Получаем идентификатор пользователя, вызвавшего этот мутатор
+    const userId = await auth.getUserId(ctx);
+
+    // Проверяем, авторизован ли пользователь
+    if (!userId) {
+      throw new Error("Unauthorized");
+    }
+
+    // Получаем рабочую область по ID
+    const workspace = await ctx.db.get(args.workspaceId);
+
+    // Проверяем, существует ли рабочая область
+    if (!workspace) {
+      throw new Error("Workspace not found");
+    }
+
+    // Проверяем, совпадает ли код для присоединения к рабочей области
+    if (workspace.joinCode !== args.joinCode.toLowerCase()) {
+      throw new Error("Invalid join code");
+    }
+
+    // Проверяем, не является ли пользователь уже участником рабочей области
+    const existingMember = await ctx.db
+      .query("members")
+      .withIndex("by_workspace_id_user_id", (q) =>
+        q.eq("workspaceId", args.workspaceId).eq("userId", userId)
+      )
+      .unique();
+
+    // Если пользователь уже состоит в рабочих пространствах, возвращается ошибка
+    if (existingMember) {
+      throw new Error("Already an active member of this workspace");
+    }
+
+    // Иначе присоединяемся к рабочей области
+    await ctx.db.insert("members", {
+      userId,
+      workspaceId: workspace._id,
+      role: "member",
+    });
+
+    // Возвращаем идентификатор рабочей области
+    return workspace._id;
+  },
+});
+
+// Функция для создания нового кода для присоединения
+export const newJoinCode = mutation({
+  args: {
+    workspaceId: v.id("workspaces"),
+  },
+
+  /**
+   * Создает новый код для присоединения к рабочей области
+   *
+   * Требует, чтобы пользователь был аутентифицирован и имел роль "admin" в указанной
+   * рабочей области.
+   *
+   * @throws {Error} if the user is unauthorized or if the workspace does not exist.
+   */
+  handler: async (ctx, args) => {
+    // Получаем идентификатор пользователя, вызвавшего этот мутатор
+    const userId = await auth.getUserId(ctx);
+
+    // Проверяем, авторизован ли пользователь
+    if (!userId) {
+      throw new Error("Unauthorized");
+    }
+
+    // Смотрим, в каких рабочих пространствах пользователь состоит
+    const member = await ctx.db
+      .query("members")
+      .withIndex("by_workspace_id_user_id", (q) =>
+        q.eq("workspaceId", args.workspaceId).eq("userId", userId)
+      )
+      .unique();
+
+    // Если пользователь не состоит в рабочих пространствах, возвращаем ошибку
+    if (!member) {
+      throw new Error("Unauthorized");
+    }
+
+    // Генерируем случайный код
+    const code = generateCode();
+
+    await ctx.db.patch(args.workspaceId, {
+      joinCode: code,
+    });
+
+    return args.workspaceId;
+  },
+});
+
 /**
  * Генерирует случайный 6-значный алфавитно-цифровой код,
  * который мы используем в качестве кода для присоединения к рабочей области.
@@ -48,14 +160,20 @@ export const create = mutation({
       joinCode,
     });
 
-    // Добавляем нового участника рабочей области (создателя в качестве администратора)
+    // Добавление нового участника рабочей области (создателя в качестве администратора)
     await ctx.db.insert("members", {
       userId,
       workspaceId,
       role: "admin",
     });
 
-    // Возвращаем идентификатор созданной рабочей области
+    // Создание канала "general" в рабочей области
+    await ctx.db.insert("channels", {
+      name: "general",
+      workspaceId,
+    });
+
+    // Возвращается идентификатор созданной рабочей области
     return workspaceId;
   },
 });
@@ -99,6 +217,44 @@ export const get = query({
   },
 });
 
+// Получение информации о рабочей области
+export const getInfoById = query({
+  args: {
+    id: v.id("workspaces"),
+  },
+
+  /**
+   * Возвращает информацию о рабочей области
+   *
+   * @returns объект с полями:
+   *   - name: название рабочей области
+   *   - isMember: является ли пользователь участником рабочей области
+   */
+  handler: async (ctx, args) => {
+    const userId = await auth.getUserId(ctx);
+    if (!userId) {
+      return null;
+    }
+
+    // Смотрим, состоит ли пользователь в рабочей области
+    const member = await ctx.db
+      .query("members")
+      .withIndex("by_workspace_id_user_id", (q) =>
+        q.eq("workspaceId", args.id).eq("userId", userId)
+      )
+      .unique();
+
+    // Получаем рабочую область
+    const workspace = await ctx.db.get(args.id);
+
+    // Возвращаем информацию
+    return {
+      name: workspace?.name,
+      isMember: !!member,
+    };
+  },
+});
+
 // Получение рабочуей области по идентификатору
 export const getById = query({
   args: {
@@ -114,8 +270,9 @@ export const getById = query({
   handler: async (ctx, args) => {
     // Проверяем, авторизован ли пользователь
     const userId = await auth.getUserId(ctx);
+    // Если пользователь не авторизован, возвращаем null
     if (!userId) {
-      throw new Error("Unauthorized");
+      return null;
     }
 
     // Смотрим, в каких рабочих пространствах пользователь состоит
@@ -200,13 +357,12 @@ export const remove = mutation({
       throw new Error("Unauthorized");
     }
 
-    const [members] =
-      await Promise.all([
-        ctx.db
-          .query("members")
-          .withIndex("by_workspace_id", (q) => q.eq("workspaceId", args.id))
-          .collect(),
-      ]);
+    const [members] = await Promise.all([
+      ctx.db
+        .query("members")
+        .withIndex("by_workspace_id", (q) => q.eq("workspaceId", args.id))
+        .collect(),
+    ]);
 
     for (const member of members) {
       await ctx.db.delete(member._id);

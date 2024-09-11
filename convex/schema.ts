@@ -22,10 +22,19 @@ const schema = defineSchema({
     // Роль в рабочей области
     role: v.union(v.literal("admin"), v.literal("member")),
   })
-    // Уникальность в рамках рабочей области
+    // Нахождение участника рабочей области по ID пользователя и ID рабочей области
     .index("by_user_id", ["userId"])
     .index("by_workspace_id", ["workspaceId"])
     .index("by_workspace_id_user_id", ["workspaceId", "userId"]),
+
+  // Таблица для хранения каналов
+  channels: defineTable({
+    // Название канала
+    name: v.string(),
+    // ID рабочей области, к которой принадлежит канал
+    workspaceId: v.id("workspaces"),
+    // Нахождение канала по ID рабочей области
+  }).index("by_workspace_id", ["workspaceId"]),
 });
 
 export default schema;

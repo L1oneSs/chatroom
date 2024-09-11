@@ -5,6 +5,7 @@ import { useCreateWorkspaceModal } from "@/features/workspaces/store/use-create-
 import { useGetWorkspaces } from "@/features/workspaces/api/use-get-workspaces";
 import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { Loader } from "lucide-react";
 
 /**
  * Главная страница
@@ -46,8 +47,14 @@ export default function Home() {
   }, [workspaceId, open, setOpen, isLoading]);
 
   return (
-    <div>
+  <div>
+    {isLoading ? (
+      <div className="h-screen flex justify-center items-center">
+        <Loader className="animate-spin text-black" size={32} />
+      </div>
+    ) : (
       <UserButton />
-    </div>
-  );
+    )}
+  </div>
+);
 }
