@@ -105,3 +105,165 @@ export const get = query({
     return channels;
   },
 });
+
+// Функция для получения канала по идентификатору
+export const getById = query({
+  args: {
+    id: v.id("channels"),
+  },
+
+  /**
+   * Возвращает канал по идентификатору, если пользователь, вызвавший
+   * этот мутатор, состоит в рабочей области, к которой принадлежит
+   * канал.
+   *
+   * @param {Id<"channels">} args.id - идентификатор канала
+   * @returns {Doc<"channels">} - канал, или null, если пользователь
+   * не состоит в рабочей области, к которой принадлежит канал.
+   */
+  handler: async (ctx, args) => {
+    // Получаем идентификатор пользователя, вызвавшего этот мутатор
+    const userId = await auth.getUserId(ctx);
+
+    // Если пользователь не авторизован, возвращаем null
+    if (!userId) {
+      return null;
+    }
+
+    // Получаем канал по идентификатору
+    const channel = await ctx.db.get(args.id);
+
+    // Если канал не существует, возвращаем null
+    if (!channel) {
+      return null;
+    }
+
+    // Проверяем, является ли пользователь участником рабочей области, в которой находится канал
+    const member = await ctx.db
+      .query("members")
+      .withIndex("by_workspace_id_user_id", (q) =>
+        q.eq("workspaceId", channel.workspaceId).eq("userId", userId)
+      )
+      .unique();
+
+    // Если пользователь не состоит в рабочем пространстве, возвращаем null
+    if (!member) {
+      return null;
+    }
+
+    // Возвращаем канал
+    return channel;
+  },
+});
+
+// Функция для обновления имени канала
+export const update = mutation({
+  args: {
+    id: v.id("channels"),
+    name: v.string(),
+  },
+
+  /**
+   * Обновляет имя канала.
+   *
+   * @param {UpdateChannelArgs} args - Объект с ID канала и новым именем.
+   * @returns - ID канала, если обновление прошло успешно.
+   * @throws {Error} - Если пользователь не авторизован,
+   *   канал не существует,
+   *   или пользователь не является администратором рабочей области,
+   *   в которой находится канал.
+   */
+  handler: async (ctx, args) => {
+    // Получаем идентификатор пользователя, вызвавшего этот мутатор
+    const userId = await auth.getUserId(ctx);
+
+    // Проверка, авторизован ли пользователь
+    if (!userId) {
+      throw new Error("Unauthorized");
+    }
+
+    // Получаем канал по идентификатору
+    const channel = await ctx.db.get(args.id);
+
+    // Проверка, существует ли канал
+    if (!channel) {
+      throw new Error("Channel not found");
+    }
+
+    // Проверяем, является ли пользователь участником рабочей области, в которой находится канал
+    const member = await ctx.db
+      .query("members")
+      .withIndex("by_workspace_id_user_id", (q) =>
+        q.eq("workspaceId", channel.workspaceId).eq("userId", userId)
+      )
+      .unique();
+
+    // Проверка, является ли пользователь администратором рабочей области, в которой находится канал
+    if (!member || member.role !== "admin") {
+      throw new Error("Unauthorized");
+    }
+
+    // Обновляем имя канала
+    await ctx.db.patch(args.id, { name: args.name });
+
+    // Возвращаем ID канала
+    return args.id;
+  },
+});
+
+
+// Функция для удаления канала  
+export const remove = mutation({
+  args: {
+    id: v.id("channels"),
+  },
+
+  /**
+   * Удаляет канал
+   *
+   * @param {Id<"channels">} id - ID канала
+   *
+   * @throws {Error} если пользователь не авторизован
+   * @throws {Error} если канал не существует
+   * @throws {Error} если пользователь не является администратором
+   *
+   * @returns {Id<"channels">} ID канала
+   */
+  handler: async (ctx, args) => {
+
+    // Получаем идентификатор пользователя, вызвавшего этот мутатор
+    const userId = await auth.getUserId(ctx);
+
+    // Проверка, авторизован ли пользователь
+    if (!userId) {
+      throw new Error("Unauthorized");
+    }
+
+    // Получаем канал по идентификатору
+    const channel = await ctx.db.get(args.id);
+
+    // Проверка, существует ли канал
+    if (!channel) {
+      throw new Error("Channel not found");
+    }
+
+    // Проверяем, является ли пользователь участником рабочей области, в которой находится канал
+    const member = await ctx.db
+      .query("members")
+      .withIndex("by_workspace_id_user_id", (q) =>
+        q.eq("workspaceId", channel.workspaceId).eq("userId", userId)
+      )
+      .unique();
+
+    // Проверка, является ли пользователь администратором рабочей области, в которой находится канал
+    if (!member || member.role !== "admin") {
+      throw new Error("Unauthorized");
+    }
+
+    // Удаляем канал
+    await ctx.db.delete(args.id);
+
+    // Возвращаем ID канала
+    return args.id;
+  },
+});
