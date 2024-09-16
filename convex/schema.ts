@@ -62,11 +62,11 @@ const schema = defineSchema({
     // ID родительского сообщения
     parentMessageId: v.optional(v.id("messages")),
     // Дата создания (обновления) сообщения
-    updatedAt: v.number(),
+    updatedAt: v.optional(v.number()),
     // ID переписки (личного чата)
     conversationId: v.optional(v.id("conversations")),
     // Нахождение сообщения по ID рабочей области, ID пользователя, ID канала и ID родительского сообщения
-  }).index("by_workspace_id", ["workspaceId"]).index("by_member_id", ["memberId"]).index("by_channel_id", ["channelId"]).index("by_conversation_id", ["conversationId"]).index("by_channel_id_parent_message_id_conversation_id", ["channelId", "parentMessageId", "conversationId"]),
+  }).index("by_workspace_id", ["workspaceId"]).index("by_member_id", ["memberId"]).index("by_channel_id", ["channelId"]).index("by_conversation_id", ["conversationId"]).index("by_parent_message_id", ["parentMessageId"]).index("by_channel_id_parent_message_id_conversation_id", ["channelId", "parentMessageId", "conversationId"]),
 
   // Таблица для хранения реакций
   reactions: defineTable({
