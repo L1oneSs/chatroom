@@ -1,7 +1,11 @@
 import { GetMessagesReturnType } from '@/features/members/api/use-get-messages';
 import React from 'react';
-import { format, isToday, isYesterday } from 'date-fns';
+import { differenceInMinutes, format, isToday, isYesterday } from 'date-fns';
 import { Message } from './message';
+import { ChannelHero } from './channel-hero';
+import { Id } from '../../convex/_generated/dataModel';
+import { useWorkspaceId } from '@/hooks/use-workspace-id';
+import { useCurrentMember } from '@/features/members/api/use-current-member';
 
 interface MessageListProps {
     memberName?: string;
@@ -14,6 +18,8 @@ interface MessageListProps {
     isLoadingMore: boolean;
     canLoadMore: boolean;
 }
+
+const TIME_THRESHOLD = 5;
 
 /**
  * Форматирует строку даты в human-readable формат.
@@ -41,6 +47,17 @@ export const MessageList = ({
     isLoadingMore,
     canLoadMore
 }: MessageListProps) => {
+
+    // Состояние редактирования сообщения
+    const [editingId, setEditingId] = React.useState<Id<"messages"> | null>(null);
+
+    // Получаем ID текущей рабочей области
+    const workspaceId = useWorkspaceId();
+
+    // Получаем текущего пользователя
+    const {data: currentMember} = useCurrentMember({workspaceId});
+
+
 
     // Группируем сообщения по дате и времени создания
     const groupedMessages = data?.reduce(
@@ -76,6 +93,15 @@ export const MessageList = ({
                         </span>
                     </div>
                     {messages.map((message, index) => {
+                        
+                        // Предыдущее сообщение
+                        const prevMessage = messages[index - 1];
+
+                        // Установка формата компактного сообщения (для сообщений с временем создания + 5 минут от одного пользователя)
+                        const isCompact = prevMessage && prevMessage.user?._id === message.user?._id &&
+                         differenceInMinutes(new Date(message._creationTime), new Date(prevMessage._creationTime))
+                        < TIME_THRESHOLD;
+
                         return (
                             <Message
                                 key={message._id}
@@ -83,16 +109,16 @@ export const MessageList = ({
                                 memberId={message.memberId}
                                 authorImage={message.user.image}
                                 authorName={message.user.name}
-                                isAuthor={false}
+                                isAuthor={message.memberId === currentMember?._id}
                                 reactions={message.reactions}
                                 body={message.body}
                                 image={message.image}
                                 updatedAt={message.updatedAt}
                                 createdAt={message._creationTime}
-                                isEditing={false}
-                                setEditingId={() => {}}
-                                isCompact={false}
-                                hideThreadButton={false}
+                                isEditing={editingId === message._id}
+                                setEditingId={setEditingId}
+                                isCompact={isCompact}
+                                hideThreadButton={variant === "thread"}
                                 threadCount={message.threadCount}
                                 threadImage={message.threadImage}
                                 threadTimestamp={message.threadTimestamp}
@@ -101,6 +127,12 @@ export const MessageList = ({
                     })}
                 </div>
             ))}
+            {variant === "channel" && channelName && channelCreationTime && (
+                <ChannelHero
+                    name={channelName}
+                    creationTime={channelCreationTime}
+                />
+            )}
         </div>
     );
 };

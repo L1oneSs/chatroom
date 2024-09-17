@@ -313,3 +313,103 @@ export const create = mutation({
     return messageId;
   },
 });
+
+// Функция для обновления сообщения
+export const update = mutation({
+  args: {
+    id: v.id("messages"),
+    body: v.string(),
+  },
+
+  /**
+   * Обновляет текст сообщения
+   *
+   * @param {{ id: Id<"messages">; body: string }} args - ID сообщения и новый текст
+   * @returns ID обновленного сообщения
+   * @throws Error - если пользователь не авторизован, сообщение не найдено,
+   *                 или пользователь не является автором сообщения
+   */
+  handler: async (ctx, args) => {
+
+    // Получаем ID текущего пользователя
+    const userId = await auth.getUserId(ctx);
+
+    // Проверяем, авторизован ли пользователь
+    if (!userId) {
+      throw new Error("Unauthorized");
+    }
+
+    // Получаем сообщение 
+    const message = await ctx.db.get(args.id);
+
+    // Проверяем, существует ли сообщение
+    if (!message) {
+      throw new Error("Message not found");
+    }
+
+    // Проверяем, является ли пользователь автором сообщения
+    const member = await getMember(ctx, message.workspaceId, userId);
+
+    if (!member || member._id !== message.memberId) {
+      throw new Error("Member not found");
+    }
+
+    // Обновляем сообщение
+    await ctx.db.patch(args.id, {
+      body: args.body,
+      updatedAt: Date.now(),
+    });
+
+    // Возвращаем ID обновленного сообщения
+    return args.id;
+  },
+});
+
+// Функция для удаления сообщения
+export const remove = mutation({
+  args: {
+    id: v.id("messages"),
+  },
+
+  /**
+   * Удаляет сообщение
+   *
+   * @throws {Error} - если пользователь не авторизован
+   * @throws {Error} - если сообщение не существует
+   * @throws {Error} - если пользователь не является автором сообщения
+   * @returns {Id<"messages">} - ID удаленного сообщения
+   */
+  handler: async (ctx, args) => {
+    
+    // Получаем ID текущего пользователя
+    const userId = await auth.getUserId(ctx);
+
+    // Проверяем, авторизован ли пользователь
+    if (!userId) {
+      throw new Error("Unauthorized");
+    }
+
+    // Получаем сообщение
+    const message = await ctx.db.get(args.id);
+
+    // Проверяем, существует ли сообщение
+    if (!message) {
+      throw new Error("Message not found");
+    }
+
+    // Проверяем, является ли пользователь автором сообщения
+    const member = await getMember(ctx, message.workspaceId, userId);
+
+    if (!member || member._id !== message.memberId) {
+      throw new Error("Member not found");
+    }
+
+    // Удаляем сообщение
+    await ctx.db.delete(args.id);
+
+    // Возвращаем ID удаленного сообщения
+    return args.id;
+  },
+});
+
+
