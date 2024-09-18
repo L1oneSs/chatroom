@@ -6,9 +6,25 @@ import { Loader, TriangleAlert } from 'lucide-react';
 import React from 'react';
 import Header from './header';
 import { ChatInput } from "./chat-input";
-import { useGetMessages } from '@/features/members/api/use-get-messages';
+import { useGetMessages } from '@/features/messages/api/use-get-messages';
 import { MessageList } from '@/components/message-list';
 
+/**
+ * Компонент, отображающий страницу канала
+ *
+ * @returns {JSX.Element} - JSX-элемент, отображающий страницу канала
+ *
+ * Компонент загружает канал, к которому относится
+ * ссылка в URL, и отображает его имя, дату создания,
+ * список его сообщений, а также форму для отправки
+ * новых сообщений.
+ *
+ * Если канал не существует, то отображается
+ * предупреждение.
+ *
+ * Если канал загружается, то отображается
+ * индикатор загрузки.
+ */
 const ChanelIdPage = () => {
 
     // Id активного канала

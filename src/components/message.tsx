@@ -11,6 +11,9 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useRemoveMessage } from "@/features/messages/api/use-remove-message";
 import { useConfirm } from "@/hooks/use-confirm";
+import { useToggleReaction } from "@/features/reactions/api/use-toggle-reaction";
+import { Reactions } from "./reactions";
+import { usePanel } from "@/hooks/use-panel";
 
 const Renderer = dynamic(() => import("@/components/renderer"), { ssr: false });
 const Editor = dynamic(() => import("@/components/editor"), { ssr: false });
@@ -79,6 +82,11 @@ export const Message = ({
     // Состояние удаления сообщения
     const { mutate: removeMessage, isPending: isRemovingMessage} = useRemoveMessage();
 
+    // Состояние реакции
+    const { mutate: toggleReaction, isPending: isTogglingReaction} = useToggleReaction();
+
+    const { onOpenMessage, onClose, parentMessageId} = usePanel();
+
     // Конфигурируем подтверждение
     const [ConfirmDialog, confirm] = useConfirm(
         "Delete message",
@@ -87,6 +95,30 @@ export const Message = ({
 
     // Обновляем состояние редактирования
     const isPending = isUpdatingMessage;
+
+    /**
+     * Callback, вызываемый, когда пользователь
+     * выбирает реакцию.
+     *
+     * @param {string} value - значение реакции
+     */
+    const handleReaction = (value: string) => {
+
+        toggleReaction({messageId: id, value}, {
+            /**
+             * Callback, вызываемый, если запрос на смену
+             * реакции выполнен с ошибкой.
+             *
+             * @example
+             * onError: () => {
+             *   toast.error("Failed to toggle reaction");
+             * }
+             */
+            onError: () => {
+                toast.error("Failed to toggle reaction");
+            }
+        })
+    }
 
     /**
      * Обновляет текст сообщения
@@ -151,6 +183,11 @@ export const Message = ({
                  */
                 onSuccess: () => {
                     toast.success("Message deleted");
+
+                    // Если сообщение было удалено, то закрываем панель thread
+                    if(parentMessageId === id){
+                        onClose();
+                    }
                 },
                 /**
                  * Callback, вызываемый, если запрос на удаление
@@ -196,6 +233,7 @@ export const Message = ({
                             {updatedAt ? (
                                 <span className="text-xs text-muted-foreground">(edited)</span>
                             ) : null}
+                            <Reactions data={reactions} onChange={handleReaction} />
                         </div>
                     )}
                 </div>
@@ -204,9 +242,9 @@ export const Message = ({
                         isAuthor={isAuthor}
                         isPending={isPending}
                         handleEdit={() => setEditingId(id)}
-                        handleThread={() => {}}
+                        handleThread={() => onOpenMessage(id)}
                         handleDelete={handleRemove}
-                        handleReaction={() => {}}
+                        handleReaction={handleReaction}
                         hideThreadButton={hideThreadButton}
                     />
                 )}
@@ -259,6 +297,7 @@ export const Message = ({
                             {updatedAt ? (
                                 <span className="text-sm text-muted-foreground">(edited)</span>
                             ) : null}
+                            <Reactions data={reactions} onChange={handleReaction} />
                         </div>
                     )}
                 </div>
@@ -267,9 +306,9 @@ export const Message = ({
                         isAuthor={isAuthor}
                         isPending={isPending}
                         handleEdit={() => setEditingId(id)}
-                        handleThread={() => {}}
+                        handleThread={() => onOpenMessage(id)}
                         handleDelete={handleRemove}
-                        handleReaction={() => {}}
+                        handleReaction={handleReaction}
                         hideThreadButton={hideThreadButton}
                     />
                 )}

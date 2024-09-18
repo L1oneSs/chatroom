@@ -1,4 +1,4 @@
-import { GetMessagesReturnType } from '@/features/members/api/use-get-messages';
+import { GetMessagesReturnType } from '@/features/messages/api/use-get-messages';
 import React from 'react';
 import { differenceInMinutes, format, isToday, isYesterday } from 'date-fns';
 import { Message } from './message';
@@ -6,6 +6,7 @@ import { ChannelHero } from './channel-hero';
 import { Id } from '../../convex/_generated/dataModel';
 import { useWorkspaceId } from '@/hooks/use-workspace-id';
 import { useCurrentMember } from '@/features/members/api/use-current-member';
+import { Loader } from 'lucide-react';
 
 interface MessageListProps {
     memberName?: string;
@@ -36,6 +37,37 @@ const formatDateLabel = (dateStr: string) => {
     return format(date, "EEEE, MMMM d")
 }
 
+/**
+ * Компонент, отображающий список сообщений.
+ *
+ * @prop {{ name?: string; image?: string; channelName?: string; channelCreationTime?: number; variant?: "channel" | "thread" | "conversation"; data?: GetMessagesReturnType; loadMore: () => void; isLoadingMore: boolean; canLoadMore: boolean }} props - Свойства
+ * @prop {string} [name] - Имя члена, отправившего сообщение
+ * @prop {string} [image] - Аватар члена, отправившего сообщение
+ * @prop {string} [channelName] - Имя канала
+ * @prop {number} [channelCreationTime] - Время создания канала
+ * @prop {"channel" | "thread" | "conversation"} [variant] - Тип списка сообщений
+ * @prop {GetMessagesReturnType | undefined} [data] - Список сообщений
+ * @prop {() => void} loadMore - Функция для загрузки следующей страницы сообщений
+ * @prop {boolean} isLoadingMore - Флаг, указывающий на то, что загружается следующая страница сообщений
+ * @prop {boolean} canLoadMore - Флаг, указывающий на то, что можно загрузить следующую страницу сообщений
+ *
+ * @returns {JSX.Element} - Компонент со списком сообщений
+ * @example
+ * const { data, isLoading } = useGetMessages({ channelId: "channelId" });
+ * if (isLoading) {
+ *   return <div>Loading...</div>;
+ * }
+ * return (
+ *   <div>
+ *     <MessageList
+ *       data={data}
+ *       loadMore={() => {}}
+ *       isLoadingMore={false}
+ *       canLoadMore={true}
+ *     />
+ *   </div>
+ * );
+ */
 export const MessageList = ({
     memberName,
     memberImage,
@@ -127,6 +159,33 @@ export const MessageList = ({
                     })}
                 </div>
             ))}
+            <div 
+                className='h-1'
+                ref={(el) => {
+                if (el) {
+                    const observer = new IntersectionObserver(
+                        ([entry]) => {
+                            if(entry.isIntersecting && canLoadMore) {
+                                loadMore();
+                            }
+                        },
+                        {threshold: 1.0}
+                    );
+
+                    observer.observe(el);
+
+                    return () => observer.disconnect();
+                }
+            }}
+             />
+            {isLoadingMore && (
+                <div className='text-center my-2 relative'>
+                    <hr className='abssolute top-1/2 left-0 right-0 botder-t border-gray-300' />
+                    <span className='relative inline-block bg-white px-4 py-1 roundef-full text-xs border-gray-300 shadow-sm'>
+                        <Loader className='size-5 animate-spin' />
+                    </span>
+                </div>
+            )}
             {variant === "channel" && channelName && channelCreationTime && (
                 <ChannelHero
                     name={channelName}

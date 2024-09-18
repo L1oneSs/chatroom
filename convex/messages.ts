@@ -90,6 +90,105 @@ const populateThread = async (ctx: QueryCtx, messageId: Id<"messages">) => {
   };
 };
 
+// Функция для получения сообщения по ID
+export const getById = query({
+  args: {
+    id: v.id("messages"),
+  },
+
+  handler: async (ctx, args) => {
+    // Получаем ID текущего пользователя
+    const userId = await auth.getUserId(ctx);
+
+    // Проверяем, авторизован ли пользователь
+    if (!userId) {
+      return null;
+    }
+
+    // Получаем информацию о сообщении
+    const message = await ctx.db.get(args.id);
+
+    // Если сообщение не существует, то возвращаем null
+    if (!message) {
+      return null;
+    }
+
+    // Получаем информацию о участнике
+    const member = await populateMember(ctx, message.memberId);
+
+    // Если участник не существует, то возвращаем null
+    if (!member) {
+      return null;
+    }
+
+    // Получаем информацию о текущем участнике
+    const currentMember = await getMember(ctx, message.workspaceId, userId);
+
+    // Если участник не существует, то возвращаем null
+    if(!currentMember) {
+      return null
+    }
+
+    // Получаем информацию о пользователе
+    const user = await populateUser(ctx, member.userId);
+
+    // Если пользователь не существует, то возвращаем null
+    if (!user) {
+      return null;
+    }
+
+    // Получаем реакции на сообщение
+    const reactions = await populateReactions(ctx, message._id);
+
+    // Группируем реакции
+    const reactionsWithCounts = reactions.map((reaction) => {
+      return {
+        ...reaction,
+        count: reactions.filter((r) => r.value === reaction.value).length,
+      };
+    });
+
+    // Убираем дубликаты
+    const dedupedReactions = reactionsWithCounts.reduce(
+      (acc, reaction) => {
+        // Проверяем, есть ли реакция с таким же значением в acc
+        const existingReaction = acc.find((r) => r.value === reaction.value);
+
+        // Если есть, то создаем новый сет и добавляем участника как поставившего реакцию
+        if (existingReaction) {
+          existingReaction.memberIds = Array.from(
+            new Set([...existingReaction.memberIds, reaction.memberId])
+          );
+        } else {
+          // Если нет, то добавляем реакцию
+          acc.push({ ...reaction, memberIds: [reaction.memberId] });
+        }
+
+        // Возвращаем обновленный acc
+        return acc;
+      },
+      [] as (Doc<"reactions"> & {
+        count: number;
+        memberIds: Id<"members">[];
+      })[]
+    );
+
+    // Убираем свойство memberId из реакции
+    const reactionsWithoutMemberIdProperty = dedupedReactions.map(
+      ({ memberId, ...rest }) => rest
+    );
+
+    return {
+      ...message,
+      image: message.image ?
+        await ctx.storage.getUrl(message.image) : undefined,
+      user,
+      member,
+      reactions: reactionsWithoutMemberIdProperty,
+    }
+  },
+});
+
 // Функция для получения сообщений
 export const get = query({
   args: {
@@ -161,11 +260,11 @@ export const get = query({
     // Получаем информацию о пользователях и реакциях на сообщения
     return {
       ...results,
+      // Загружаем информацию о пользователях и реакциях на сообщения
       page: (
-        // Загружаем информацию о пользователях и реакциях на сообщения
         await Promise.all(
           results.page.map(async (message) => {
-            // Получаем участника 
+            // Получаем участника
             const member = await populateMember(ctx, message.memberId);
             // Получаем пользователя
             const user = member ? await populateUser(ctx, member.userId) : null;
@@ -201,7 +300,7 @@ export const get = query({
                   (r) => r.value === reaction.value
                 );
 
-                // Если есть, то создаем новый сет и добавляем участника как поставившего реакцию 
+                // Если есть, то создаем новый сет и добавляем участника как поставившего реакцию
                 if (existingReaction) {
                   existingReaction.memberIds = Array.from(
                     new Set([...existingReaction.memberIds, reaction.memberId])
@@ -330,7 +429,6 @@ export const update = mutation({
    *                 или пользователь не является автором сообщения
    */
   handler: async (ctx, args) => {
-
     // Получаем ID текущего пользователя
     const userId = await auth.getUserId(ctx);
 
@@ -339,7 +437,7 @@ export const update = mutation({
       throw new Error("Unauthorized");
     }
 
-    // Получаем сообщение 
+    // Получаем сообщение
     const message = await ctx.db.get(args.id);
 
     // Проверяем, существует ли сообщение
@@ -380,7 +478,6 @@ export const remove = mutation({
    * @returns {Id<"messages">} - ID удаленного сообщения
    */
   handler: async (ctx, args) => {
-    
     // Получаем ID текущего пользователя
     const userId = await auth.getUserId(ctx);
 
@@ -411,5 +508,3 @@ export const remove = mutation({
     return args.id;
   },
 });
-
-

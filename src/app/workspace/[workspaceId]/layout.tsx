@@ -1,41 +1,78 @@
 "use client";
+import { Loader } from "lucide-react";
 
-import React from 'react';
-import { Toolbar } from './toolbar';
-import { Sidebar } from './sidebar';
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
+import { usePanel } from "@/hooks/use-panel";
 
-import { ResizableHandle,
-        ResizablePanel,
-        ResizablePanelGroup
-} from '@/components/ui/resizable';   
-import { WorkspaceSidebar } from './workspace-sidebar';
+import { Sidebar } from "./sidebar";
+import { Toolbar } from "./toolbar";
+import { WorkspaceSidebar } from "./workspace-sidebar";
 
-interface WorkspaceIdLayoutProps{
-    children: React.ReactNode;
-}
+import { Id } from "../../../../convex/_generated/dataModel";
+import { Thread } from "@/features/messages/components/thread";
+
+interface WorkspaceIdLayoutProps {
+  children: React.ReactNode;
+};
 
 /**
- * WorkspaceIdLayout - функциональный компонент, предназначенный
- * для отображения основных элементов интерфейса чата:
- * панели инструментов, списка чатов, и основного контента
+ * WorkspaceIdLayout - функциональный компонент, предназначенный для
+ * отображения основного интерфейса рабочей области.
+ *
+ * @param {{ children: React.ReactNode }} props - объект с данными
  * 
- * @param {React.ReactNode} children - дочерние элементы, которые
- * будут отображаться в основном контенте
- * 
- * @returns {React.ReactElement} - JSX-элемент, отображающий
- * WorkspaceIdLayout
+ * @returns {JSX.Element} - JSX-элемент, отображающий основной интерфейс
+ * рабочей области
  */
-const WorkspaceIdLayout = ({children}: WorkspaceIdLayoutProps) => {
-    return (
-        <div className='h-full'>
-            <Toolbar />
-            <div className='flex h-[calc(100vh-40px)]'>
-                <Sidebar />
-                <WorkspaceSidebar />
-                {children}
-            </div>
-        </div>
-    );
+const WorkspaceIdLayout = ({ children }: WorkspaceIdLayoutProps) => {
+
+  // Панель с thread сообщениями
+  const { parentMessageId, onOpenMessage, onClose } = usePanel();
+
+  const showPanel = !!parentMessageId;
+
+  return (
+    <div className="h-full">
+      <Toolbar />
+      <div className="flex h-[calc(100vh-40px)]">
+        <Sidebar />
+        <ResizablePanelGroup
+          direction="horizontal"
+          autoSaveId="ca-workspace-layout"
+        >
+          <ResizablePanel
+            defaultSize={20}
+            minSize={11}
+            className="bg-[#5E2C5F]"
+          >
+            <WorkspaceSidebar />
+          </ResizablePanel>
+          <ResizableHandle withHandle />
+          <ResizablePanel minSize={20} defaultSize={80}>
+            {children}
+          </ResizablePanel>
+          {showPanel && (
+            <>
+              <ResizableHandle withHandle />
+              <ResizablePanel minSize={20} defaultSize={29}>
+                {parentMessageId ? (
+                    <Thread messageId={parentMessageId as Id<"messages">} onClose={onClose} />
+                ) : (
+                    <div className="flex h-full items-center justify-center">
+                        <Loader className="size-5 animate-spin text-muted-foreground" />
+                    </div>
+                )}
+              </ResizablePanel>
+            </>
+          )}
+        </ResizablePanelGroup>
+      </div>
+    </div>
+  );
 };
 
 export default WorkspaceIdLayout;
