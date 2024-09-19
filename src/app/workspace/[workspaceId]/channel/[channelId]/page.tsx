@@ -8,6 +8,7 @@ import Header from './header';
 import { ChatInput } from "./chat-input";
 import { useGetMessages } from '@/features/messages/api/use-get-messages';
 import { MessageList } from '@/components/message-list';
+import { useCurrentMember } from '@/features/members/api/use-current-member';
 
 /**
  * Компонент, отображающий страницу канала
@@ -33,6 +34,7 @@ const ChanelIdPage = () => {
     // Загрузка канала
     const {data: channel, isLoading: channelLoading} = useGetChannel({ id: channelId });
 
+    // Загрузка сообщений
     const { results, status, loadMore } = useGetMessages({ channelId });
 
     if(channelLoading || status === "LoadingFirstPage"){

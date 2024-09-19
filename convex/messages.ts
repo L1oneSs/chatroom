@@ -125,8 +125,8 @@ export const getById = query({
     const currentMember = await getMember(ctx, message.workspaceId, userId);
 
     // Если участник не существует, то возвращаем null
-    if(!currentMember) {
-      return null
+    if (!currentMember) {
+      return null;
     }
 
     // Получаем информацию о пользователе
@@ -180,12 +180,13 @@ export const getById = query({
 
     return {
       ...message,
-      image: message.image ?
-        await ctx.storage.getUrl(message.image) : undefined,
+      image: message.image
+        ? await ctx.storage.getUrl(message.image)
+        : undefined,
       user,
       member,
       reactions: reactionsWithoutMemberIdProperty,
-    }
+    };
   },
 });
 
@@ -220,13 +221,13 @@ export const get = query({
    * );
    */
   handler: async (ctx, args) => {
-    // Получаем ID текущего пользователя
-    const userId = await auth.getUserId(ctx);
+    // // Получаем ID текущего пользователя
+    // const userId = await auth.getUserId(ctx);
 
-    // Проверяем, авторизован ли пользователь
-    if (!userId) {
-      throw new Error("Unauthorized");
-    }
+    // // Проверяем, авторизован ли пользователь
+    // if (!userId) {
+    //   throw new Error("Unauthorized");
+    // }
 
     // Получаем ID личного чата
     let _conversationId = args.conversationId;

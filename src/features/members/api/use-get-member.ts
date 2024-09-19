@@ -2,19 +2,19 @@ import { useQuery } from "convex/react";
 import { api } from "../../../../convex/_generated/api";
 import { Id } from "../../../../convex/_generated/dataModel";
 
-interface UseGetMembersProps {
-  workspaceId: Id<"workspaces">;
+interface UseGetMemberProps {
+  id: Id<"members">;
 }
 
 /**
- * Возвращает участников рабочей области
+ * Возвращает текущего участника рабочей области
  *
- * @param {UseGetMembersProps} props
+ * @param {UseGetMemberProps} props
  * @returns {{ data: Member | undefined, isLoading: boolean }}
  */
-export const UseGetMembers = ({ workspaceId }: UseGetMembersProps) => {
+export const UseGetMember = ({ id }: UseGetMemberProps) => {
   // Загружаем всех участников рабочей области
-  const data = useQuery(api.members.get, { workspaceId });
+  const data = useQuery(api.members.getById, { id });
 
   // Состояние загрузки
   const isLoading = data === undefined;

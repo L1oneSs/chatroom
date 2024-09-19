@@ -8,6 +8,56 @@ const populateUser = (ctx: QueryCtx, id: Id<"users">) => {
   return ctx.db.get(id);
 };
 
+export const getById = query({
+  args: {
+    id: v.id("members"),
+  },
+
+  handler: async (ctx, args) => {
+    // Получение идентификатора пользователя
+    const userId = await auth.getUserId(ctx);
+
+    // Проверка, авторизован ли пользователь
+    if (!userId) {
+      return null;
+    }
+
+    // Получение участника
+    const member = await ctx.db.get(args.id);
+
+    // Проверка, есть ли участник
+    if (!member) {
+      return null;
+    }
+
+    // Получение текущего участника
+    const currentMember = await ctx.db
+      .query("members")
+      .withIndex("by_workspace_id_user_id", (q) =>
+        q.eq("workspaceId", member.workspaceId).eq("userId", userId)
+      );
+
+    // Если нет текущего участника, возвращаем null, т.к. пользователь не является участником рабочей области
+    if (!currentMember) {
+      return null;
+    }
+
+    // Получение пользователя
+    const user = await populateUser(ctx, member.userId);
+
+    // Проверка, существует ли пользователь
+    if (!user) {
+      return null;
+    }
+
+    // Возвращение пользователя
+    return {
+      ...member,
+      user,
+    };
+  },
+});
+
 // Функция для получения списка участников
 export const get = query({
   args: {
