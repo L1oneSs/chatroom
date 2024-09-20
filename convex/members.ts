@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { query, QueryCtx } from "./_generated/server";
+import { mutation, query, QueryCtx } from "./_generated/server";
 import { auth } from "./auth";
 import { Id } from "./_generated/dataModel";
 
@@ -159,5 +159,152 @@ export const current = query({
     }
 
     return member;
+  },
+});
+
+export const update = mutation({
+  args: {
+    id: v.id("members"),
+    role: v.union(v.literal("admin"), v.literal("member")),
+  },
+
+  /**
+   * Обновляет роль участника
+   *
+   * @param args.id - id участника
+   * @param args.role - новая роль (admin или member)
+   *
+   * @throws {Error} Unauthorized - если пользователь не авторизован
+   * @throws {Error} Member not found - если участник с id не существует
+   * @throws {Error} Unauthorized - если у пользователя нет прав администратора
+   * @returns id обновленного участника
+   */
+  handler: async (ctx, args) => {
+    // Получение идентификатора пользователя
+    const userId = await auth.getUserId(ctx);
+
+    // Проверка, авторизован ли пользователь
+    if (!userId) {
+      throw new Error("Unauthorized");
+    }
+
+    // Получение текущего участника
+    const member = await ctx.db.get(args.id);
+
+    // Проверка, есть ли участник
+    if (!member) {
+      throw new Error("Member not found");
+    }
+
+    const currentMember = await ctx.db
+      .query("members")
+      .withIndex("by_workspace_id_user_id", (q) =>
+        q.eq("workspaceId", member.workspaceId).eq("userId", userId)
+      )
+      .unique();
+
+    if (!currentMember || currentMember.role !== "admin") {
+      throw new Error("Unauthorized");
+    }
+
+    // Обновление роли участника
+    await ctx.db.patch(args.id, {
+      role: args.role,
+    });
+
+    return args.id;
+  },
+});
+
+// Функция для удаления участника
+export const remove = mutation({
+  args: {
+    id: v.id("members"),
+  },
+
+    /**
+     * Удаляет участника
+     *
+     * @param args.id - id участника
+     *
+     * @throws {Error} Unauthorized - если пользователь не авторизован
+     * @throws {Error} Member not found - если участник с id не существует
+     * @throws {Error} Unauthorized - если у пользователя нет прав администратора
+     * @throws {Error} Admin cannot be deleted - если пытаемся удалить администратора
+     * @throws {Error} Cannot delete yourself - если пытаемся удалить самого себя
+     *
+     * @returns id удаленного участника
+     */
+  handler: async (ctx, args) => {
+    // Получение идентификатора пользователя
+    const userId = await auth.getUserId(ctx);
+
+    // Проверка, авторизован ли пользователь
+    if (!userId) {
+      throw new Error("Unauthorized");
+    }
+
+    // Получение текущего участника
+    const member = await ctx.db.get(args.id);
+
+    // Проверка, есть ли участник
+    if (!member) {
+      throw new Error("Member not found");
+    }
+
+    const currentMember = await ctx.db
+      .query("members")
+      .withIndex("by_workspace_id_user_id", (q) =>
+        q.eq("workspaceId", member.workspaceId).eq("userId", userId)
+      )
+      .unique();
+
+    if (!currentMember) {
+      throw new Error("Unauthorized");
+    }
+
+    // Проверка на администратора
+    if(member.role === "admin"){
+      throw new Error("Admin cannot be deleted");
+    }
+
+    // Невозможность удалить самого себя
+    if (currentMember._id === args.id && currentMember.role === "admin") {
+      throw new Error("Cannot delete yourself");
+    }
+
+    // Удаление сообщений, реакции и бесед, связанных с участником
+    const [messages, reactions, conversations] = await Promise.all([
+      ctx.db
+        .query("messages")
+        .withIndex("by_member_id", (q) => q.eq("memberId", member._id))
+        .collect(),
+      ctx.db
+        .query("reactions")
+        .withIndex("by_member_id", (q) => q.eq("memberId", member._id))
+        .collect(),
+      ctx.db
+        .query("conversations")
+        .filter((q) => q.or(q.eq(q.field("memberOneId"), member._id), q.eq(q.field("memberTwoId"), member._id)))
+        .collect(),
+    ]);
+
+    for (const message of messages) {
+      await ctx.db.delete(message._id);
+    }
+
+    for (const reaction of reactions) {
+      await ctx.db.delete(reaction._id);
+    }
+
+    for (const conversation of conversations) {
+      await ctx.db.delete(conversation._id);
+    }
+
+    // Удаление участника
+    await ctx.db.delete(args.id);
+
+
+    return args.id;
   },
 });

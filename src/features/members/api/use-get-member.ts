@@ -12,7 +12,7 @@ interface UseGetMemberProps {
  * @param {UseGetMemberProps} props
  * @returns {{ data: Member | undefined, isLoading: boolean }}
  */
-export const UseGetMember = ({ id }: UseGetMemberProps) => {
+export const useGetMember = ({ id }: UseGetMemberProps) => {
   // Загружаем всех участников рабочей области
   const data = useQuery(api.members.getById, { id });
 
