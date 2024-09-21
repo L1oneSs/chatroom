@@ -47,14 +47,8 @@ export default function Home() {
   }, [workspaceId, open, setOpen, isLoading]);
 
   return (
-  <div>
-    {isLoading ? (
-      <div className="h-screen flex justify-center items-center">
-        <Loader className="animate-spin text-black" size={32} />
-      </div>
-    ) : (
-      <UserButton />
-    )}
-  </div>
+    <div className="h-full flex justify-center items-center">
+        <Loader className="size-6 animate-spin text-muted-foreground" />
+    </div>
 );
 }

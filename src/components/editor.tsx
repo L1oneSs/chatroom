@@ -253,13 +253,13 @@ const Editor = ({
      *     custom: false
      * });
      */
-    const onEmojiSelect = (emoji: any) => {
+    const onEmojiSelect = (emojiValue: any) => {
 
         // Получаем ссылку на Quill
         const quill = quillRef.current;
 
         // Вставляем выбранный эмоджи
-        quill?.insertText(quill?.getSelection()?.index || 0, emoji.native);
+        quill?.insertText(quill?.getSelection()?.index || 0, emojiValue);
     }
 
     return (

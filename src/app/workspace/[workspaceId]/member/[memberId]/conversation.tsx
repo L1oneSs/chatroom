@@ -1,11 +1,12 @@
 import { useMemberId } from "@/hooks/use-member-id";
 import { Id } from "../../../../../../convex/_generated/dataModel";
-import { UseGetMember } from "@/features/members/api/use-get-member";
+import { useGetMember } from "@/features/members/api/use-get-member";
 import { useGetMessages } from "@/features/messages/api/use-get-messages";
 import { Loader } from "lucide-react";
 import {Header} from "./header";
 import { ChatInput } from "./chat-input";
 import { MessageList } from "@/components/message-list";
+import { usePanel } from "@/hooks/use-panel";
 interface ConversationProps {
     id: Id<"conversations">;
 }
@@ -28,8 +29,10 @@ export const Conversation = ({ id }: ConversationProps) => {
     // Получаем id участника
     const memberId = useMemberId();
 
+    const { onOpenProfile } = usePanel();
+
     // Информация о пользователе
-    const { data: member, isLoading: memberLoading} = UseGetMember({ id: memberId });
+    const { data: member, isLoading: memberLoading} = useGetMember({ id: memberId });
 
     // Загрузка сообщений
     const {results, status, loadMore} = useGetMessages({
@@ -49,7 +52,7 @@ export const Conversation = ({ id }: ConversationProps) => {
             <Header
                 memberName={member?.user.name}
                 memberImage={member?.user.image}
-                onClick={() => {}}
+                onClick={() => onOpenProfile(memberId)}
             />
             <MessageList
                 data={results}
